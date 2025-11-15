@@ -53,4 +53,20 @@ public class Game {
     // --- GETTER Y SETTER NUEVO ---
     public String getQuestionIds() { return questionIds; }
     public void setQuestionIds(String questionIds) { this.questionIds = questionIds; }
+
+    // ... (después de currentQuestionIndex)
+
+    @Column(name = "player_one_current_answer")
+    private String playerOneCurrentAnswer; // Qué ha respondido J1
+
+    @Column(name = "player_two_current_answer")
+    private String playerTwoCurrentAnswer; // Qué ha respondido J2
+
+// ... (getters/setters existentes) ...
+
+    // --- AÑADIR GETTERS Y SETTERS NUEVOS ---
+    public String getPlayerOneCurrentAnswer() { return playerOneCurrentAnswer; }
+    public void setPlayerOneCurrentAnswer(String playerOneCurrentAnswer) { this.playerOneCurrentAnswer = playerOneCurrentAnswer; }
+    public String getPlayerTwoCurrentAnswer() { return playerTwoCurrentAnswer; }
+    public void setPlayerTwoCurrentAnswer(String playerTwoCurrentAnswer) { this.playerTwoCurrentAnswer = playerTwoCurrentAnswer; }
 }
