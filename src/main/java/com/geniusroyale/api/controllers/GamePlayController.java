@@ -17,6 +17,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Controller
 public class GamePlayController {
@@ -39,9 +41,10 @@ public class GamePlayController {
             return;
         }
 
+        String playerOneTopic = "/topic/game.updates." + game.getPlayerOne().getUsername();
+        String playerTwoTopic = "/topic/game.updates." + game.getPlayerTwo().getUsername();
+
         boolean isPlayerOne = game.getPlayerOne().getUsername().equals(player.getUsername());
-        String opponentUsername = (isPlayerOne) ? game.getPlayerTwo().getUsername() : game.getPlayerOne().getUsername();
-        String rivalTopic = "/topic/game.updates." + opponentUsername;
 
         // 1. Guardar la respuesta de este jugador
         if (isPlayerOne) {
@@ -49,15 +52,24 @@ public class GamePlayController {
             if (game.getPlayerOneCurrentAnswer() != null) return;
 
             game.setPlayerOneCurrentAnswer(answer.getSelectedAnswer());
+
             // Avisar al J2 que J1 ha contestado
-            messagingTemplate.convertAndSend(rivalTopic, new GameUpdateDTO("RIVAL_ANSWERED", "Tu rival ha contestado"));
+            GameUpdateDTO rivalUpdate = new GameUpdateDTO();
+            rivalUpdate.setType("RIVAL_ANSWERED");
+            rivalUpdate.setMessage("¡Tu rival ha contestado!");
+            messagingTemplate.convertAndSend(playerTwoTopic, rivalUpdate);
+
         } else {
             // Comprobar si ya había respondido
             if (game.getPlayerTwoCurrentAnswer() != null) return;
 
             game.setPlayerTwoCurrentAnswer(answer.getSelectedAnswer());
+
             // Avisar al J1 que J2 ha contestado
-            messagingTemplate.convertAndSend(rivalTopic, new GameUpdateDTO("RIVAL_ANSWERED", "Tu rival ha contestado"));
+            GameUpdateDTO rivalUpdate = new GameUpdateDTO();
+            rivalUpdate.setType("RIVAL_ANSWERED");
+            rivalUpdate.setMessage("¡Tu rival ha contestado!");
+            messagingTemplate.convertAndSend(playerOneTopic, rivalUpdate);
         }
 
         // 2. Comprobar si AMBOS jugadores han respondido
@@ -74,7 +86,6 @@ public class GamePlayController {
 
     /**
      * Este método se llama CUANDO AMBOS jugadores han respondido.
-     * Calcula puntuaciones, envía resultados y avanza la partida.
      */
     private void processRound(Game game) {
         String playerOneTopic = "/topic/game.updates." + game.getPlayerOne().getUsername();
@@ -122,7 +133,7 @@ public class GamePlayController {
             messagingTemplate.convertAndSend(playerTwoTopic, gameOver);
         }
 
-        // gameRepository.save(game); // No es necesario, @Transactional lo hará
+        // gameRepository.save(game); // @Transactional se encarga de guardar al final del método
     }
 
     private int getScore(Difficulty difficulty) {
@@ -133,4 +144,4 @@ public class GamePlayController {
             default: return 0;
         }
     }
-}
+} // <-- ¡¡ESTA ES LA LLAVE QUE FALTABA!!
