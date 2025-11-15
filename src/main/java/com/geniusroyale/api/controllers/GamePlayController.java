@@ -27,19 +27,21 @@ public class GamePlayController {
     @Autowired private QuestionRepository questionRepository;
 
     @MessageMapping("/game.answer")
-    @Transactional
+    @Transactional // <-- ¡LA CLAVE ESTÁ AQUÍ!
     public void handleAnswer(Principal principal, @Payload PlayerAnswerDTO answer) {
 
         String email = principal.getName();
         User player = userRepository.findByEmail(email).orElseThrow();
+        // Usamos findById para que @Transactional coja la última versión
         Game game = gameRepository.findById(answer.getGameId()).orElseThrow();
 
-        if ("FINISHED".equals(game.getGameState())) return;
+        if ("FINISHED".equals(game.getGameState())) return; // No hacer nada si el juego acabó
 
         String playerOneTopic = "/topic/game.updates." + game.getPlayerOne().getUsername();
         String playerTwoTopic = "/topic/game.updates." + game.getPlayerTwo().getUsername();
 
         boolean isPlayerOne = game.getPlayerOne().getUsername().equals(player.getUsername());
+        String rivalTopic = (isPlayerOne) ? playerTwoTopic : playerOneTopic;
 
         // 1. Guardar la respuesta de este jugador
         if (isPlayerOne) {
@@ -48,14 +50,14 @@ public class GamePlayController {
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
             rivalUpdate.setMessage("¡Tu rival ha contestado!");
-            messagingTemplate.convertAndSend(playerTwoTopic, rivalUpdate);
+            messagingTemplate.convertAndSend(rivalTopic, rivalUpdate);
         } else {
             if (game.getPlayerTwoCurrentAnswer() != null) return; // Ya ha respondido
             game.setPlayerTwoCurrentAnswer(answer.getSelectedAnswer());
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
             rivalUpdate.setMessage("¡Tu rival ha contestado!");
-            messagingTemplate.convertAndSend(playerOneTopic, rivalUpdate);
+            messagingTemplate.convertAndSend(rivalTopic, rivalUpdate);
         }
 
         // --- ¡ARREGLO DEL BUG! ---
@@ -71,6 +73,8 @@ public class GamePlayController {
             // ¡Ambos han respondido! Es hora de procesar la ronda
             processRound(gameSaved);
         }
+
+        // (Ya no guardamos aquí, el 'save' de arriba o el de processRound se encargan)
     }
 
     /**
@@ -103,9 +107,9 @@ public class GamePlayController {
         messagingTemplate.convertAndSend(playerTwoTopic, roundResult);
 
         // 3. Preparar para la siguiente ronda
-        game.setPlayerOneCurrentAnswer(null);
+        game.setPlayerOneCurrentAnswer(null); // Limpiar respuestas
         game.setPlayerTwoCurrentAnswer(null);
-        game.setCurrentQuestionIndex(questionIndex + 1);
+        game.setCurrentQuestionIndex(questionIndex + 1); // Avanzar
 
         // 4. Comprobar si es el final de la partida
         if (game.getCurrentQuestionIndex() >= questionIds.length) {
