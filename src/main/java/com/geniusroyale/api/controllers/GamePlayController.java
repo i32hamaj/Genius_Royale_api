@@ -45,6 +45,7 @@ public class GamePlayController {
         String playerTwoTopic = "/topic/game.updates." + game.getPlayerTwo().getUsername();
 
         boolean isPlayerOne = game.getPlayerOne().getUsername().equals(player.getUsername());
+        String rivalTopic = (isPlayerOne) ? playerTwoTopic : playerOneTopic;
 
         // 1. Guardar la respuesta de este jugador
         if (isPlayerOne) {
@@ -53,11 +54,13 @@ public class GamePlayController {
 
             game.setPlayerOneCurrentAnswer(answer.getSelectedAnswer());
 
-            // Avisar al J2 que J1 ha contestado
+            // --- ¡CÓDIGO CORREGIDO! ---
+            // Usar setters en lugar del constructor
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
             rivalUpdate.setMessage("¡Tu rival ha contestado!");
             messagingTemplate.convertAndSend(playerTwoTopic, rivalUpdate);
+            // --- FIN DEL CAMBIO ---
 
         } else {
             // Comprobar si ya había respondido
@@ -65,11 +68,13 @@ public class GamePlayController {
 
             game.setPlayerTwoCurrentAnswer(answer.getSelectedAnswer());
 
-            // Avisar al J1 que J2 ha contestado
+            // --- ¡CÓDIGO CORREGIDO! ---
+            // Usar setters en lugar del constructor
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
             rivalUpdate.setMessage("¡Tu rival ha contestado!");
             messagingTemplate.convertAndSend(playerOneTopic, rivalUpdate);
+            // --- FIN DEL CAMBIO ---
         }
 
         // 2. Comprobar si AMBOS jugadores han respondido
@@ -144,4 +149,4 @@ public class GamePlayController {
             default: return 0;
         }
     }
-} // <-- ¡¡ESTA ES LA LLAVE QUE FALTABA!!
+}
