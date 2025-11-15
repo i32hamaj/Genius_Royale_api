@@ -11,33 +11,20 @@ public class GameUpdateDTO {
     private int playerTwoScore;
     private String winnerUsername;
 
-    // Constructor para RIVAL_ANSWERED
-    public GameUpdateDTO(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
+    // Solo el constructor por defecto
+    public GameUpdateDTO() {}
 
-    // Constructor para ROUND_RESULT
-    public GameUpdateDTO(String type, String correctAnswer, int p1Score, int p2Score) {
-        this.type = type;
-        this.correctAnswer = correctAnswer;
-        this.playerOneScore = p1Score;
-        this.playerTwoScore = p2Score;
-    }
-
-    // Constructor para GAME_OVER
-    public GameUpdateDTO(String type, String winnerUsername, int p1Score, int p2Score) {
-        this.type = type;
-        this.winnerUsername = winnerUsername;
-        this.playerOneScore = p1Score;
-        this.playerTwoScore = p2Score;
-    }
-
-    // Getters
+    // Getters y Setters para todos los campos
     public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
     public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
     public String getCorrectAnswer() { return correctAnswer; }
+    public void setCorrectAnswer(String correctAnswer) { this.correctAnswer = correctAnswer; }
     public int getPlayerOneScore() { return playerOneScore; }
+    public void setPlayerOneScore(int playerOneScore) { this.playerOneScore = playerOneScore; }
     public int getPlayerTwoScore() { return playerTwoScore; }
+    public void setPlayerTwoScore(int playerTwoScore) { this.playerTwoScore = playerTwoScore; }
     public String getWinnerUsername() { return winnerUsername; }
+    public void setWinnerUsername(String winnerUsername) { this.winnerUsername = winnerUsername; }
 }
