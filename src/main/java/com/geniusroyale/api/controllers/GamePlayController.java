@@ -14,11 +14,9 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional; // <-- ¡IMPORT AÑADIDO!
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Controller
 public class GamePlayController {
@@ -29,33 +27,37 @@ public class GamePlayController {
     @Autowired private QuestionRepository questionRepository;
 
     @MessageMapping("/game.answer")
-    @Transactional // <-- ¡ARREGLO DEL BUG!
+    @Transactional // ¡Muy importante para esta lógica!
     public void handleAnswer(Principal principal, @Payload PlayerAnswerDTO answer) {
 
         String email = principal.getName();
         User player = userRepository.findByEmail(email).orElseThrow();
         Game game = gameRepository.findById(answer.getGameId()).orElseThrow();
 
-        String playerOneTopic = "/topic/game.updates." + game.getPlayerOne().getUsername();
-        String playerTwoTopic = "/topic/game.updates." + game.getPlayerTwo().getUsername();
+        // Si el juego ya ha terminado, no hacer nada
+        if ("FINISHED".equals(game.getGameState())) {
+            return;
+        }
 
         boolean isPlayerOne = game.getPlayerOne().getUsername().equals(player.getUsername());
+        String opponentUsername = (isPlayerOne) ? game.getPlayerTwo().getUsername() : game.getPlayerOne().getUsername();
+        String rivalTopic = "/topic/game.updates." + opponentUsername;
 
         // 1. Guardar la respuesta de este jugador
         if (isPlayerOne) {
+            // Comprobar si ya había respondido (para evitar dobles clics)
+            if (game.getPlayerOneCurrentAnswer() != null) return;
+
             game.setPlayerOneCurrentAnswer(answer.getSelectedAnswer());
-            // Avisar al J2
-            GameUpdateDTO rivalUpdate = new GameUpdateDTO();
-            rivalUpdate.setType("RIVAL_ANSWERED");
-            rivalUpdate.setMessage("¡Tu rival ha contestado!");
-            messagingTemplate.convertAndSend(playerTwoTopic, rivalUpdate);
+            // Avisar al J2 que J1 ha contestado
+            messagingTemplate.convertAndSend(rivalTopic, new GameUpdateDTO("RIVAL_ANSWERED", "Tu rival ha contestado"));
         } else {
+            // Comprobar si ya había respondido
+            if (game.getPlayerTwoCurrentAnswer() != null) return;
+
             game.setPlayerTwoCurrentAnswer(answer.getSelectedAnswer());
-            // Avisar al J1
-            GameUpdateDTO rivalUpdate = new GameUpdateDTO();
-            rivalUpdate.setType("RIVAL_ANSWERED");
-            rivalUpdate.setMessage("¡Tu rival ha contestado!");
-            messagingTemplate.convertAndSend(playerOneTopic, rivalUpdate);
+            // Avisar al J1 que J2 ha contestado
+            messagingTemplate.convertAndSend(rivalTopic, new GameUpdateDTO("RIVAL_ANSWERED", "Tu rival ha contestado"));
         }
 
         // 2. Comprobar si AMBOS jugadores han respondido
@@ -63,52 +65,64 @@ public class GamePlayController {
         String p2Answer = game.getPlayerTwoCurrentAnswer();
 
         if (p1Answer != null && p2Answer != null) {
-            // ¡Ambos han respondido!
-
-            String[] questionIds = game.getQuestionIds().split(",");
-            int questionIndex = game.getCurrentQuestionIndex();
-            Question question = questionRepository.findById(Integer.parseInt(questionIds[questionIndex])).orElseThrow();
-            String correctAnswer = question.getCorrectAnswer();
-
-            // 4. Calcular puntuaciones
-            if (p1Answer.equals(correctAnswer)) {
-                game.setPlayerOneScore(game.getPlayerOneScore() + getScore(question.getDifficultyLevel()));
-            }
-            if (p2Answer.equals(correctAnswer)) {
-                game.setPlayerTwoScore(game.getPlayerTwoScore() + getScore(question.getDifficultyLevel()));
-            }
-
-            // 5. Enviar el resultado de la ronda
-            GameUpdateDTO roundResult = new GameUpdateDTO();
-            roundResult.setType("ROUND_RESULT");
-            roundResult.setCorrectAnswer(correctAnswer);
-            roundResult.setPlayerOneScore(game.getPlayerOneScore());
-            roundResult.setPlayerTwoScore(game.getPlayerTwoScore());
-            messagingTemplate.convertAndSend(playerOneTopic, roundResult);
-            messagingTemplate.convertAndSend(playerTwoTopic, roundResult);
-
-            // 6. Preparar para la siguiente ronda
-            game.setPlayerOneCurrentAnswer(null);
-            game.setPlayerTwoCurrentAnswer(null);
-            game.setCurrentQuestionIndex(questionIndex + 1);
-
-            // 7. Comprobar si es el final
-            if (game.getCurrentQuestionIndex() >= questionIds.length) {
-                game.setGameState("FINISHED");
-                String winner = (game.getPlayerOneScore() > game.getPlayerTwoScore()) ? game.getPlayerOne().getUsername() : game.getPlayerTwo().getUsername();
-                if (game.getPlayerOneScore() == game.getPlayerTwoScore()) winner = "Empate";
-
-                GameUpdateDTO gameOver = new GameUpdateDTO();
-                gameOver.setType("GAME_OVER");
-                gameOver.setWinnerUsername(winner);
-                gameOver.setPlayerOneScore(game.getPlayerOneScore());
-                gameOver.setPlayerTwoScore(game.getPlayerTwoScore());
-                messagingTemplate.convertAndSend(playerOneTopic, gameOver);
-                messagingTemplate.convertAndSend(playerTwoTopic, gameOver);
-            }
+            // ¡Ambos han respondido! Es hora de procesar la ronda
+            processRound(game);
         }
 
-        gameRepository.save(game); // Guardar todos los cambios
+        gameRepository.save(game); // Guardar la respuesta
+    }
+
+    /**
+     * Este método se llama CUANDO AMBOS jugadores han respondido.
+     * Calcula puntuaciones, envía resultados y avanza la partida.
+     */
+    private void processRound(Game game) {
+        String playerOneTopic = "/topic/game.updates." + game.getPlayerOne().getUsername();
+        String playerTwoTopic = "/topic/game.updates." + game.getPlayerTwo().getUsername();
+
+        String[] questionIds = game.getQuestionIds().split(",");
+        int questionIndex = game.getCurrentQuestionIndex();
+        Question question = questionRepository.findById(Integer.parseInt(questionIds[questionIndex])).orElseThrow();
+        String correctAnswer = question.getCorrectAnswer();
+
+        // 1. Calcular puntuaciones
+        if (game.getPlayerOneCurrentAnswer().equals(correctAnswer)) {
+            game.setPlayerOneScore(game.getPlayerOneScore() + getScore(question.getDifficultyLevel()));
+        }
+        if (game.getPlayerTwoCurrentAnswer().equals(correctAnswer)) {
+            game.setPlayerTwoScore(game.getPlayerTwoScore() + getScore(question.getDifficultyLevel()));
+        }
+
+        // 2. Enviar el resultado de la ronda a AMBOS
+        GameUpdateDTO roundResult = new GameUpdateDTO();
+        roundResult.setType("ROUND_RESULT");
+        roundResult.setCorrectAnswer(correctAnswer);
+        roundResult.setPlayerOneScore(game.getPlayerOneScore());
+        roundResult.setPlayerTwoScore(game.getPlayerTwoScore());
+        messagingTemplate.convertAndSend(playerOneTopic, roundResult);
+        messagingTemplate.convertAndSend(playerTwoTopic, roundResult);
+
+        // 3. Preparar para la siguiente ronda
+        game.setPlayerOneCurrentAnswer(null); // Limpiar respuestas
+        game.setPlayerTwoCurrentAnswer(null);
+        game.setCurrentQuestionIndex(questionIndex + 1); // Avanzar
+
+        // 4. Comprobar si es el final de la partida
+        if (game.getCurrentQuestionIndex() >= questionIds.length) {
+            game.setGameState("FINISHED");
+            String winner = (game.getPlayerOneScore() > game.getPlayerTwoScore()) ? game.getPlayerOne().getUsername() : game.getPlayerTwo().getUsername();
+            if (game.getPlayerOneScore() == game.getPlayerTwoScore()) winner = "Empate";
+
+            GameUpdateDTO gameOver = new GameUpdateDTO();
+            gameOver.setType("GAME_OVER");
+            gameOver.setWinnerUsername(winner);
+            gameOver.setPlayerOneScore(game.getPlayerOneScore());
+            gameOver.setPlayerTwoScore(game.getPlayerTwoScore());
+            messagingTemplate.convertAndSend(playerOneTopic, gameOver);
+            messagingTemplate.convertAndSend(playerTwoTopic, gameOver);
+        }
+
+        // gameRepository.save(game); // No es necesario, @Transactional lo hará
     }
 
     private int getScore(Difficulty difficulty) {
