@@ -17,8 +17,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Controller
 public class GamePlayController {
@@ -29,64 +27,50 @@ public class GamePlayController {
     @Autowired private QuestionRepository questionRepository;
 
     @MessageMapping("/game.answer")
-    @Transactional // ¡Muy importante para esta lógica!
+    @Transactional
     public void handleAnswer(Principal principal, @Payload PlayerAnswerDTO answer) {
 
         String email = principal.getName();
         User player = userRepository.findByEmail(email).orElseThrow();
         Game game = gameRepository.findById(answer.getGameId()).orElseThrow();
 
-        // Si el juego ya ha terminado, no hacer nada
-        if ("FINISHED".equals(game.getGameState())) {
-            return;
-        }
+        if ("FINISHED".equals(game.getGameState())) return;
 
         String playerOneTopic = "/topic/game.updates." + game.getPlayerOne().getUsername();
         String playerTwoTopic = "/topic/game.updates." + game.getPlayerTwo().getUsername();
 
         boolean isPlayerOne = game.getPlayerOne().getUsername().equals(player.getUsername());
-        String rivalTopic = (isPlayerOne) ? playerTwoTopic : playerOneTopic;
 
         // 1. Guardar la respuesta de este jugador
         if (isPlayerOne) {
-            // Comprobar si ya había respondido (para evitar dobles clics)
-            if (game.getPlayerOneCurrentAnswer() != null) return;
-
+            if (game.getPlayerOneCurrentAnswer() != null) return; // Ya ha respondido
             game.setPlayerOneCurrentAnswer(answer.getSelectedAnswer());
-
-            // --- ¡CÓDIGO CORREGIDO! ---
-            // Usar setters en lugar del constructor
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
             rivalUpdate.setMessage("¡Tu rival ha contestado!");
             messagingTemplate.convertAndSend(playerTwoTopic, rivalUpdate);
-            // --- FIN DEL CAMBIO ---
-
         } else {
-            // Comprobar si ya había respondido
-            if (game.getPlayerTwoCurrentAnswer() != null) return;
-
+            if (game.getPlayerTwoCurrentAnswer() != null) return; // Ya ha respondido
             game.setPlayerTwoCurrentAnswer(answer.getSelectedAnswer());
-
-            // --- ¡CÓDIGO CORREGIDO! ---
-            // Usar setters en lugar del constructor
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
             rivalUpdate.setMessage("¡Tu rival ha contestado!");
             messagingTemplate.convertAndSend(playerOneTopic, rivalUpdate);
-            // --- FIN DEL CAMBIO ---
         }
 
-        // 2. Comprobar si AMBOS jugadores han respondido
-        String p1Answer = game.getPlayerOneCurrentAnswer();
-        String p2Answer = game.getPlayerTwoCurrentAnswer();
+        // --- ¡ARREGLO DEL BUG! ---
+        // Guardamos la respuesta del jugador 1 INMEDIATAMENTE
+        // Y SOLO el jugador 2 (el segundo en responder) procesa la ronda
+
+        Game gameSaved = gameRepository.save(game); // Guardar la respuesta actual
+
+        String p1Answer = gameSaved.getPlayerOneCurrentAnswer();
+        String p2Answer = gameSaved.getPlayerTwoCurrentAnswer();
 
         if (p1Answer != null && p2Answer != null) {
             // ¡Ambos han respondido! Es hora de procesar la ronda
-            processRound(game);
+            processRound(gameSaved);
         }
-
-        gameRepository.save(game); // Guardar la respuesta
     }
 
     /**
@@ -109,7 +93,7 @@ public class GamePlayController {
             game.setPlayerTwoScore(game.getPlayerTwoScore() + getScore(question.getDifficultyLevel()));
         }
 
-        // 2. Enviar el resultado de la ronda a AMBOS
+        // 2. Enviar el resultado de la ronda
         GameUpdateDTO roundResult = new GameUpdateDTO();
         roundResult.setType("ROUND_RESULT");
         roundResult.setCorrectAnswer(correctAnswer);
@@ -119,9 +103,9 @@ public class GamePlayController {
         messagingTemplate.convertAndSend(playerTwoTopic, roundResult);
 
         // 3. Preparar para la siguiente ronda
-        game.setPlayerOneCurrentAnswer(null); // Limpiar respuestas
+        game.setPlayerOneCurrentAnswer(null);
         game.setPlayerTwoCurrentAnswer(null);
-        game.setCurrentQuestionIndex(questionIndex + 1); // Avanzar
+        game.setCurrentQuestionIndex(questionIndex + 1);
 
         // 4. Comprobar si es el final de la partida
         if (game.getCurrentQuestionIndex() >= questionIds.length) {
@@ -138,7 +122,7 @@ public class GamePlayController {
             messagingTemplate.convertAndSend(playerTwoTopic, gameOver);
         }
 
-        // gameRepository.save(game); // @Transactional se encarga de guardar al final del método
+        gameRepository.save(game); // Guardar el avance
     }
 
     private int getScore(Difficulty difficulty) {
