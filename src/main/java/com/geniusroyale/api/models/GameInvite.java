@@ -3,6 +3,12 @@ package com.geniusroyale.api.models;
 import jakarta.persistence.*;
 import java.time.Instant;
 
+// --- Imports Añadidos ---
+import com.geniusroyale.api.models.Category;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+// --- Fin Imports ---
+
 @Entity
 @Table(name = "game_invites")
 public class GameInvite {
@@ -24,6 +30,12 @@ public class GameInvite {
     @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Instant createdAt;
 
+    // --- CAMPO NUEVO ---
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
+    // --- FIN CAMPO NUEVO ---
+
     public GameInvite() {
         this.createdAt = Instant.now();
         this.status = "PENDING";
@@ -40,4 +52,9 @@ public class GameInvite {
     public void setStatus(String status) { this.status = status; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    // --- MÉTODOS NUEVOS ---
+    public Category getCategory() { return category; }
+    public void setCategory(Category category) { this.category = category; }
+    // --- FIN MÉTODOS NUEVOS ---
 }
