@@ -58,12 +58,9 @@ public class GamePlayController {
             messagingTemplate.convertAndSend(playerOneTopic, rivalUpdate);
         }
 
-        // --- ¡ARREGLO DEL BUG! ---
-        // Guardamos la respuesta del jugador 1 INMEDIATAMENTE
-        // Y SOLO el jugador 2 (el segundo en responder) procesa la ronda
-
         Game gameSaved = gameRepository.save(game); // Guardar la respuesta actual
 
+        // 2. Comprobar si AMBOS jugadores han respondido
         String p1Answer = gameSaved.getPlayerOneCurrentAnswer();
         String p2Answer = gameSaved.getPlayerTwoCurrentAnswer();
 
@@ -73,9 +70,6 @@ public class GamePlayController {
         }
     }
 
-    /**
-     * Este método se llama CUANDO AMBOS jugadores han respondido.
-     */
     private void processRound(Game game) {
         String playerOneTopic = "/topic/game.updates." + game.getPlayerOne().getUsername();
         String playerTwoTopic = "/topic/game.updates." + game.getPlayerTwo().getUsername();
