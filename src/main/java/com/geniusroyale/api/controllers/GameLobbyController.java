@@ -186,8 +186,6 @@ public class GameLobbyController {
                 )
         ).collect(Collectors.toList());
 
-        Collections.shuffle(gameQuestions);
-
         return gameQuestions;
     }
 }
