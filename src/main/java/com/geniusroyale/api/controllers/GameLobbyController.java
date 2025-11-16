@@ -1,6 +1,5 @@
 package com.geniusroyale.api.controllers;
 
-// ... (todos los imports van aquí, asegúrate de que estén)
 import com.geniusroyale.api.dto.GameStartMessage;
 import com.geniusroyale.api.dto.LobbyJoinRequest;
 import com.geniusroyale.api.models.Category;
@@ -12,16 +11,19 @@ import com.geniusroyale.api.repositories.CategoryRepository;
 import com.geniusroyale.api.repositories.GameRepository;
 import com.geniusroyale.api.repositories.QuestionRepository;
 import com.geniusroyale.api.repositories.UserRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Transactional; // <-- Importar
+
 import java.security.Principal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -39,7 +41,7 @@ public class GameLobbyController {
     private static final Map<String, Map<String, User>> categoryWaitingPools = new ConcurrentHashMap<>();
 
     @MessageMapping("/lobby.join")
-    @Transactional
+    @Transactional // <-- Añadido por seguridad
     public void joinPublicLobby(Principal principal, @Payload LobbyJoinRequest request) {
         String email = principal.getName();
         User joiningPlayer = userRepository.findByEmail(email)
@@ -82,7 +84,8 @@ public class GameLobbyController {
                 String p1Username = playerOne.getUsername();
                 String p2Username = playerTwo.getUsername();
 
-                // --- ¡ESTE ES EL CÓDIGO QUE GENERA EL JSON CORRECTO! ---
+                // --- ¡CAMBIO AQUÍ! ---
+                // Enviar la información completa de la partida a ambos jugadores
                 messagingTemplate.convertAndSend("/topic/game.start." + p1Username,
                         new GameStartMessage(gameId, p1Username, p2Username, p2Username)); // El rival de P1 es P2
 
