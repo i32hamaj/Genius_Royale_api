@@ -58,7 +58,7 @@ public class GameLobbyController {
 
                 System.out.println("LOBBY: ¡Match encontrado en [" + categoryName + "]! " + playerOne.getUsername() + " vs " + playerTwo.getUsername());
 
-                List<Question> gameQuestions = generateGameQuestions(categoryName);
+                List<Question> gameQuestions = generateGameQuestions(categoryName); // <-- ¡Vienen ordenadas!
                 String questionIdList = gameQuestions.stream()
                         .map(q -> String.valueOf(q.getId()))
                         .collect(Collectors.joining(","));
@@ -133,7 +133,7 @@ public class GameLobbyController {
 
         System.out.println("INVITE_ACCEPT: " + receiver.getUsername() + " aceptó la invitación de " + sender.getUsername());
 
-        List<Question> gameQuestions = generateGameQuestions(categoryName);
+        List<Question> gameQuestions = generateGameQuestions(categoryName); // <-- ¡Vienen ordenadas!
         String questionIdList = gameQuestions.stream()
                 .map(q -> String.valueOf(q.getId()))
                 .collect(Collectors.joining(","));
@@ -185,6 +185,8 @@ public class GameLobbyController {
                         hard.stream().limit(5)
                 )
         ).collect(Collectors.toList());
+
+        // ¡NO BARREJAMOS LA LISTA FINAL!
 
         return gameQuestions;
     }

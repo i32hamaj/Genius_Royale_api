@@ -43,14 +43,14 @@ public class GamePlayController {
 
         // 1. Guardar la respuesta de este jugador
         if (isPlayerOne) {
-            if (game.getPlayerOneCurrentAnswer() != null) return; // Ya ha respondido
+            if (game.getPlayerOneCurrentAnswer() != null) return;
             game.setPlayerOneCurrentAnswer(answer.getSelectedAnswer());
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
             rivalUpdate.setMessage("¡Tu rival ha contestado!");
             messagingTemplate.convertAndSend(playerTwoTopic, rivalUpdate);
         } else {
-            if (game.getPlayerTwoCurrentAnswer() != null) return; // Ya ha respondido
+            if (game.getPlayerTwoCurrentAnswer() != null) return;
             game.setPlayerTwoCurrentAnswer(answer.getSelectedAnswer());
             GameUpdateDTO rivalUpdate = new GameUpdateDTO();
             rivalUpdate.setType("RIVAL_ANSWERED");
