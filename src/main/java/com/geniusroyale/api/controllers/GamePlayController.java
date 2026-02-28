@@ -65,7 +65,7 @@ public class GamePlayController {
         String p2Answer = gameSaved.getPlayerTwoCurrentAnswer();
 
         if (p1Answer != null && p2Answer != null) {
-            // ¡Ambos han respondido! Es hora de procesar la ronda
+
             processRound(gameSaved);
         }
     }

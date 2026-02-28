@@ -31,7 +31,7 @@ public class QuestionController {
         System.out.println("Recibida pregunta: " + dto.getQuestionText());
 
         try {
-            // LÓGICA CLAVE: Buscar la categoría por nombre, o crearla si no existe.
+            //Buscar la categoría por nombre, o crearla si no existe.
             Category category = categoryRepository.findByName(dto.getCategoryName())
                     .orElseGet(() -> {
                         System.out.println("Creando nueva categoría: " + dto.getCategoryName());
